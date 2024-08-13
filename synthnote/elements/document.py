@@ -35,7 +35,7 @@ class Document:
             long_size = int(short_size * aspect_ratio)
             size = (long_size, short_size) if landscape else (short_size, long_size)
 
-        text_layers, texts = self.content.generate(size)
+        text_layers, texts, bbox = self.content.generate(size)
         paper_layer = layers.RectLayer(size, (255, 255, 255, 255))
 
-        return paper_layer, text_layers, texts
+        return paper_layer, text_layers, texts, bbox

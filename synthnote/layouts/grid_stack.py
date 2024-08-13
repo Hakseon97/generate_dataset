@@ -30,7 +30,7 @@ class GridStack:
 
     def generate(self, bbox):
         left, top, width, height = bbox
-
+        
         stack_spacing = np.random.uniform(self.stack_spacing[0], self.stack_spacing[1])
         stack_spacing *= min(width, height)
 

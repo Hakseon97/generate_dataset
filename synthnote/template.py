@@ -1,8 +1,3 @@
-"""
-Donut
-Copyright (c) 2022-present NAVER Corp.
-MIT License
-"""
 import json
 import os
 import re
@@ -32,28 +27,39 @@ class Note(templates.Template):
         long_size = int(short_size * aspect_ratio)
         size = (long_size, short_size) if landscape else (short_size, long_size)
 
-        bg_layer = layers.RectLayer(size, (255, 255, 255, 255))
-        paper_layer, text_layers, texts = self.document.generate(size)
+        paper_layer, text_layers, texts, layouts_bbox = self.document.generate(size)
 
         document_group = layers.Group([*text_layers, paper_layer])
         document_space = np.clip(size - document_group.size, 0, None)
         document_group.left = np.random.randint(document_space[0] + 1)
         document_group.top = np.random.randint(document_space[1] + 1)
-        roi = np.array(paper_layer.quad, dtype=int)
-
+        
+        bg_layer = layers.RectLayer(size, (255, 255, 255, 255))
         layer = layers.Group([*document_group.layers, bg_layer]).merge()
-
+     
+        # 주기 Bounding Box
+        x,y,w,h = map(int, text_layers[0].bbox)
+         
+        ## Image Drawing
         image = layer.output(bbox=[0, 0, *size])
-        label = " ".join(texts)
-        label = label.strip()
+        image = Image.fromarray(image[..., :3].astype(np.uint8))
+        
+        # combine crop coordinates
+        crop_coords = [x,y] + layouts_bbox[2:]
+        crop_img = image.crop(crop_coords)
+
+        # label
+        label = "".join(texts).strip()
         label = re.sub(r"\s+", " ", label)
 
         data = {
-            "image": image,
+            "image": np.array(crop_img),
             "label": label,
-            "roi": roi,
+            "roi": {
+                "note": [0, 0, w, h],
+                "layouts": [a - b for a, b in zip(layouts_bbox, [x,y,x,y])]
+            },
         }
-
         return data
 
     def init_save(self, root):
@@ -79,7 +85,12 @@ class Note(templates.Template):
         metadata_filepath = os.path.join(output_dirpath, metadata_filename)
         os.makedirs(os.path.dirname(metadata_filepath), exist_ok=True)
 
-        metadata = self.format_metadata(image_filename=image_filename, keys=["text_sequence"], values=[label])
+        metadata = self.format_metadata(
+            image_filename=image_filename,
+            keys=["text_sequence", "roi"],
+            values=[label, roi]
+        )
+        
         with open(metadata_filepath, "a") as fp:
             json.dump(metadata, fp, ensure_ascii=False)
             fp.write("\n")
@@ -97,10 +108,7 @@ class Note(templates.Template):
         """
         assert len(keys) == len(values), "Length does not match: keys({}), values({})".format(len(keys), len(values))
 
-        _gt_parse_v = dict()
-        for k, v in zip(keys, values):
-            _gt_parse_v[k] = v
-        gt_parse = {"gt_parse": _gt_parse_v}
+        gt_parse = {"gt_parse": dict(zip(keys, values))}
         gt_parse_str = json.dumps(gt_parse, ensure_ascii=False)
         metadata = {"file_name": image_filename, "ground_truth": gt_parse_str}
         return metadata
