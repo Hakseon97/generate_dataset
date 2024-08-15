@@ -2,6 +2,13 @@ landscape: 1
 short_size: [720, 720]
 aspect_ratio: [1, 1]
 
+background:
+  input_dir: data/crop
+  output_dir: data/image_for_yolo
+  background_dir: resources/background
+  size: [1024, 1024]
+
+
 document:
   fullscreen: 1
   landscape: 1
