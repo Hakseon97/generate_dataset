@@ -7,6 +7,16 @@ from PIL import Image
 def load_config(config_path):
     with open(config_path, 'r') as config_file:
         return yaml.safe_load(config_file)
+    
+def convert_to_yolo_format(bbox, image_width, image_height):
+    x, y, w, h = bbox
+    
+    x_center = (x + w/2) / image_width
+    y_center = (y + h/2) / image_height
+    width = w / image_width
+    height = h / image_height
+    
+    return [x_center, y_center, width, height]
 
 def process_images(config_data):
     input_dir = config_data.get('background').get('input_dir')
@@ -51,9 +61,13 @@ def process_images(config_data):
         # 메타데이터 업데이트
         gt_parse = json.loads(metadata['ground_truth'])['gt_parse']
         roi = gt_parse['roi']
+        roi_yolo = dict()
         for key in roi:
             x, y, w, h = roi[key]
             roi[key] = [x + x_offset, y + y_offset, w, h]
+            roi_yolo[key] = convert_to_yolo_format(roi[key], new_image.width, new_image.height)
+        
+        gt_parse['roi_yolo'] = roi_yolo  
         metadata['ground_truth'] = json.dumps({"gt_parse": gt_parse}, ensure_ascii=False)
         
         # 결과 저장
